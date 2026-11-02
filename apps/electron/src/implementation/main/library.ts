@@ -89,7 +89,17 @@ export const makeLibrary = Effect.fn('Library.make')(function* (
     return { mimeType: track.artworkMimeType, bytes }
   })
 
-  return Library.of({ load, addFolder, rescan, artwork })
+  const audioPath = Effect.fn('Library.audioPath')(function* (trackId: string) {
+    const track = yield* store.findTrack(trackId)
+
+    if (!track || track.presence !== 'present') {
+      return yield* new LibraryFailure({ message: 'The audio file is not available.' })
+    }
+
+    return track.path
+  })
+
+  return Library.of({ load, addFolder, rescan, audioPath, artwork })
 })
 
 export const libraryLayer = Layer.effect(

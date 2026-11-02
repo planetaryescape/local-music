@@ -109,6 +109,7 @@ export class Library extends Context.Service<
     readonly load: () => Effect.Effect<LibrarySnapshot, LibraryFailure>
     readonly addFolder: (root: string) => Effect.Effect<LibrarySnapshot, LibraryFailure>
     readonly rescan: (sourceId: string) => Effect.Effect<LibrarySnapshot, LibraryFailure>
+    readonly audioPath: (trackId: string) => Effect.Effect<string, LibraryFailure>
     readonly artwork: (
       trackId: string,
     ) => Effect.Effect<{ readonly mimeType: string; readonly bytes: Uint8Array }, LibraryFailure>

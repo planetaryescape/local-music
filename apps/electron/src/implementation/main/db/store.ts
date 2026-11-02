@@ -8,12 +8,29 @@ import {
   LibraryFailure,
   LibrarySnapshot,
   LibraryStore,
+  LibraryTrack,
   type ScannedPath,
 } from '@/contracts/library'
 import type { LibraryDatabase } from '@/implementation/main/db/open'
 import { librarySources, scanStagePaths, tracks } from '@/implementation/main/db/schema'
 
 const storageFailure = () => new LibraryFailure({ message: 'Could not read or save the library.' })
+
+const trackRow = (track: typeof tracks.$inferSelect, rootPath: string) => ({
+  id: track.id,
+  sourceId: track.sourceId,
+  relativePath: track.relativePath,
+  path: join(rootPath, track.relativePath),
+  title: track.observedTitle,
+  artist: track.observedArtist,
+  album: track.observedAlbum,
+  durationSeconds: track.durationSeconds,
+  hasEmbeddedArtwork: track.hasEmbeddedArtwork,
+  artworkId: track.artworkId,
+  artworkMimeType: track.artworkMimeType,
+  presence: track.presence,
+  lastSeenAt: track.lastSeenAt,
+})
 
 export function makeLibraryStore(db: LibraryDatabase) {
   const load = Effect.fn('LibraryStore.load')(function* () {
@@ -27,21 +44,7 @@ export function makeLibraryStore(db: LibraryDatabase) {
 
     const snapshot = {
       sources,
-      tracks: savedTracks.map((track) => ({
-        id: track.id,
-        sourceId: track.sourceId,
-        relativePath: track.relativePath,
-        path: join(roots.get(track.sourceId) ?? '', track.relativePath),
-        title: track.observedTitle,
-        artist: track.observedArtist,
-        album: track.observedAlbum,
-        durationSeconds: track.durationSeconds,
-        hasEmbeddedArtwork: track.hasEmbeddedArtwork,
-        artworkId: track.artworkId,
-        artworkMimeType: track.artworkMimeType,
-        presence: track.presence,
-        lastSeenAt: track.lastSeenAt,
-      })),
+      tracks: savedTracks.map((track) => trackRow(track, roots.get(track.sourceId) ?? '')),
     }
 
     return yield* Schema.decodeUnknownEffect(LibrarySnapshot)(snapshot).pipe(
@@ -248,9 +251,22 @@ export function makeLibraryStore(db: LibraryDatabase) {
   })
 
   const findTrack = Effect.fn('LibraryStore.findTrack')(function* (id: string) {
-    const snapshot = yield* load()
+    const [row] = yield* Effect.tryPromise({
+      try: () =>
+        db
+          .select({ track: tracks, rootPath: librarySources.rootPath })
+          .from(tracks)
+          .innerJoin(librarySources, eq(librarySources.id, tracks.sourceId))
+          .where(eq(tracks.id, id))
+          .limit(1),
+      catch: storageFailure,
+    })
 
-    return snapshot.tracks.find((track) => track.id === id) ?? null
+    if (!row) return null
+
+    return yield* Schema.decodeUnknownEffect(LibraryTrack)(trackRow(row.track, row.rootPath)).pipe(
+      Effect.mapError(storageFailure),
+    )
   })
 
   return LibraryStore.of({

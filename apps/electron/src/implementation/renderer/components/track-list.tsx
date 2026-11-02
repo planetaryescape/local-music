@@ -2,40 +2,65 @@ import { For, Show } from 'solid-js'
 
 import type { LibraryTrack } from '@/contracts/library'
 import { Cover } from '@/implementation/renderer/components/cover'
+import { formatTime } from '@/implementation/renderer/lib/time'
 
-export function TrackList(props: { tracks: ReadonlyArray<LibraryTrack> }) {
+/** Renders the searchable track table and exposes play intent to the owning player. */
+export function TrackList(props: {
+  tracks: ReadonlyArray<LibraryTrack>
+  layout: 'library' | 'album'
+  currentTrackId: string | null
+  playing: boolean
+  onPlay: (track: LibraryTrack) => void
+}) {
   return (
     <div
-      class="min-h-0 flex-1 overflow-auto rounded-[9px] border border-line bg-panel"
+      class="track-table min-h-0 flex-1 overflow-auto"
+      classList={{ 'is-album': props.layout === 'album' }}
       role="list"
       aria-label="Tracks"
     >
+      <div class="track-head" aria-hidden="true">
+        <span>#</span>
+        <span>Title</span>
+        <span>Album</span>
+        <span>Time</span>
+      </div>
       <Show when={props.tracks.length === 0}>
-        <div class="p-7 text-subtle">No tracks to show</div>
+        <div class="empty-state">No tracks match this view.</div>
       </Show>
       <For each={props.tracks.slice(0, 500)}>
         {(track, index) => (
           <div
-            class="flex min-h-[66px] items-center gap-[14px] border-b border-line px-4 py-[9px] last:border-b-0"
+            class="track-row"
+            classList={{
+              'is-current': props.currentTrackId === track.id,
+              'is-missing': track.presence === 'missing',
+            }}
             role="listitem"
+            onDblClick={() => track.presence === 'present' && props.onPlay(track)}
           >
-            <span class="w-7 shrink-0 font-data text-[13px] text-subtle tabular-nums">
-              {String(index() + 1).padStart(2, '0')}
-            </span>
+            <button
+              class="track-index"
+              type="button"
+              aria-label={`Play ${track.title}`}
+              disabled={track.presence === 'missing'}
+              onClick={() => props.onPlay(track)}
+            >
+              <span class="track-number">{String(index() + 1).padStart(2, '0')}</span>
+              <span class="track-play" aria-hidden="true">
+                {props.currentTrackId === track.id && props.playing ? 'Ⅱ' : '▶'}
+              </span>
+            </button>
             <Cover trackId={track.id} artworkId={track.artworkId} size="small" />
-            <div class="flex min-w-0 flex-1 flex-col gap-[5px]">
-              <strong class="truncate font-semibold">
-                {track.title}
-                {track.presence === 'missing' ? ' · Missing' : ''}
-              </strong>
-              <span class="truncate text-[13px] text-subtle">
-                {track.artist} · {track.album}
+            <div class="track-title">
+              <strong>{track.title}</strong>
+              <span>
+                {track.artist}
+                {track.presence === 'missing' ? ' · File missing' : ''}
               </span>
             </div>
-            <time class="font-data text-[13px] text-subtle tabular-nums">
-              {Math.floor(track.durationSeconds / 60)}:
-              {String(track.durationSeconds % 60).padStart(2, '0')}
-            </time>
+            <span class="track-album">{track.album}</span>
+            <time class="track-time">{formatTime(track.durationSeconds)}</time>
           </div>
         )}
       </For>

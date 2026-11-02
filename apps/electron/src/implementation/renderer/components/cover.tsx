@@ -5,7 +5,7 @@ export function Cover(props: {
   artworkId: string | null
   size: 'small' | 'large'
 }) {
-  const size = () => (props.size === 'small' ? 'size-[46px]' : 'size-[76px]')
+  const size = () => (props.size === 'small' ? 'size-[44px]' : 'size-full')
   const [failed, setFailed] = createSignal(false)
 
   createEffect(
@@ -31,6 +31,8 @@ export function Cover(props: {
         class={`shrink-0 rounded-md object-cover ${size()}`}
         src={`local-music-artwork://cover/${props.trackId}/${props.artworkId}`}
         alt=""
+        loading="lazy"
+        decoding="async"
         onError={() => setFailed(true)}
       />
     </Show>

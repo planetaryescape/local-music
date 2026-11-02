@@ -1,11 +1,13 @@
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { Effect, Layer, Schema } from 'effect'
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron'
 
 import { Library, type LibraryReply, type LibrarySnapshot } from '@/contracts/library'
 import { artworkCacheLayer } from '@/implementation/main/artwork-cache'
 import { serveArtwork } from '@/implementation/main/artwork-protocol'
+import { serveAudio } from '@/implementation/main/audio-protocol'
 import { openLibraryDatabase } from '@/implementation/main/db/open'
 import { libraryStoreLayer } from '@/implementation/main/db/store'
 import { libraryLayer } from '@/implementation/main/library'
@@ -37,6 +39,10 @@ app.setName('local-music')
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'local-music-artwork', privileges: { standard: true, secure: true } },
+  {
+    scheme: 'local-music-audio',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+  },
 ])
 
 void app.whenReady().then(async () => {
@@ -62,6 +68,11 @@ void app.whenReady().then(async () => {
   )
 
   protocol.handle('local-music-artwork', (request) => serveArtwork(library, request))
+  protocol.handle('local-music-audio', (request) =>
+    serveAudio(library, request, (path, headers) =>
+      net.fetch(pathToFileURL(path).toString(), { headers }),
+    ),
+  )
 
   const notifyLibrary = (snapshot: LibrarySnapshot) => {
     for (const window of BrowserWindow.getAllWindows())

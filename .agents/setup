@@ -3,10 +3,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo 'Checking Bun toolchain'
-if ! command -v bun >/dev/null 2>&1 || [[ "$(bun --version)" != '1.4.0' ]]; then
-  npm install --global --force bun@1.4.0
+echo 'Checking Rust toolchain'
+if [[ ! -x "$HOME/.cargo/bin/rustup" ]]; then
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
 fi
+export PATH="$HOME/.cargo/bin:$PATH"
+rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
 
-echo 'Installing locked workspace dependencies'
-bun install --frozen-lockfile
+echo 'Fetching locked Rust dependencies'
+cargo fetch --locked
+echo 'Native builds, UI checks, and playback require a Mac satellite; see README.md.'
